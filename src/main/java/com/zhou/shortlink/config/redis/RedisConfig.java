@@ -12,9 +12,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scripting.support.ResourceScriptSource;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -61,6 +63,22 @@ public class RedisConfig {
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
         executor.initialize();
         return executor;
+    }
+
+
+    @Bean("ipLimitLua")
+    public DefaultRedisScript<Boolean> ipLimitLua() {
+        DefaultRedisScript<Boolean> defaultRedisScript = new DefaultRedisScript<>();
+        defaultRedisScript.setScriptText("local count = redis.call('incr',KEYS[1]);\n" +
+                "if count == 1 then\n" +
+                "    redis.call(\"expire\",KEYS[1],ARGV[2])\n" +
+                "end\n" +
+                "if count > tonumber(ARGV[1]) then\n" +
+                "    return false\n" +
+                "end\n" +
+                "    return true");
+        defaultRedisScript.setResultType(Boolean.class);
+        return defaultRedisScript;
     }
 }
 

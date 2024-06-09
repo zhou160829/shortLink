@@ -5,8 +5,6 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.sql.SQLIntegrityConstraintViolationException;
-
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -16,6 +14,12 @@ public class GlobalExceptionHandler {
         return R.error().setCode(e.getCode()).setData(e.getMsg());
     }
 
+
+    @ExceptionHandler(com.zhou.shortlink.exceptions.RedisLimitException.class)
+    @ResponseBody
+    public R redisLimitException(BizException e) {
+        return R.error().setCode(e.getCode()).setData(e.getMsg());
+    }
 
 
 }

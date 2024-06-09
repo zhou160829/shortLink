@@ -2,6 +2,7 @@ package com.zhou.shortlink.controller;
 
 
 import cn.hutool.core.util.StrUtil;
+import com.zhou.shortlink.annotation.RedisLimitAnnotation;
 import com.zhou.shortlink.domain.Link;
 import com.zhou.shortlink.enums.ValiDateStatus;
 import com.zhou.shortlink.result.R;
@@ -32,6 +33,7 @@ public class LinkController {
 
 
     @PostMapping("/add")
+    @RedisLimitAnnotation(key = "addLink",permitPerSecond = 5,expire = 3)
     public R addLink(@RequestBody Link link) {
         if (link == null || StrUtil.isEmpty(link.getOriginUrl())
                 || StrUtil.isEmpty(link.getDescribe()) || link.getGroupId() == null) {
