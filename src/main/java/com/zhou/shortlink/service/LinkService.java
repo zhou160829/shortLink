@@ -25,5 +25,5 @@ public interface LinkService extends IService<Link> {
 
     Link findById(Long id);
 
-    void decode(String shortUrlKey ,HttpServletResponse response, HttpServletRequest request) throws IOException;
+    String decode(String shortUrlKey , HttpServletResponse response, HttpServletRequest request) throws IOException;
 }

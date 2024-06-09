@@ -85,6 +85,7 @@ public class Link implements Serializable {
     /**
      * 描述
      */
+    @TableField("`describe`")
     private String describe;
 
     /**

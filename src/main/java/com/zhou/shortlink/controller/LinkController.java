@@ -43,7 +43,7 @@ public class LinkController {
         }
 
 
-        if (LocalDateTime.now().isAfter(link.getValidDate())) {
+        if (link.getValidDateType().equalsValue(ValiDateStatus.FOREVER.getValue()) && link.getValidDate() != null && LocalDateTime.now().isAfter(link.getValidDate())) {
             return R.error("有效期不能小于等于当前时间");
         }
 
@@ -102,7 +102,7 @@ public class LinkController {
         return R.ok().set("page", linkService.findList(pageNum, pageSize, groupId));
     }
 
-    @GetMapping("{id}")
+    @GetMapping("findById/{id}")
     public R findById(@PathVariable("id") Long id) {
         if (id == null) {
             return R.error("参数错误");
@@ -112,10 +112,5 @@ public class LinkController {
     }
 
 
-    @GetMapping(value = "/shortUrl/decode/{shortUrlKey}")
-    public void decode(@PathVariable String shortUrlKey) throws IOException {
-        linkService.decode(shortUrlKey, response, request);
-
-    }
 
 }

@@ -1,5 +1,7 @@
 package com.zhou.shortlink.enums;
 
+import com.baomidou.mybatisplus.annotation.EnumValue;
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -10,6 +12,8 @@ public enum ValiDateStatus implements BaseEnum{
     FOREVER(0, "永久有效"),
     CUSTOM(1, "自定义"),
     ;
+    @JsonValue
+    @EnumValue
     private final int value;
     private final String desc;
 

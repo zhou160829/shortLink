@@ -19,8 +19,10 @@ import com.zhou.shortlink.domain.LinkLogs;
 import com.zhou.shortlink.domain.LinkToday;
 import com.zhou.shortlink.domain.User;
 import com.zhou.shortlink.domain.vo.CountVo;
+import com.zhou.shortlink.domain.vo.IpVo;
 import com.zhou.shortlink.enums.DeleteFlag;
 import com.zhou.shortlink.enums.EnableStatus;
+import com.zhou.shortlink.enums.ValiDateStatus;
 import com.zhou.shortlink.exceptions.BizException;
 import com.zhou.shortlink.mapper.LinkLogsMapper;
 import com.zhou.shortlink.mapper.LinkMapper;
@@ -34,7 +36,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,7 +73,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     @Resource
     UserMapper userMapper;
 
-    @Value("short.domain")
+    @Value("${short.domain}")
     private String domain;
 
     @Resource
@@ -129,7 +134,12 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             throw new BizException(String.format("短链接：%s 生成重复", fullShortUrl));
         }
 
-        stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + shortUrlKey, link.getOriginUrl(), ShortLinkUtils.getLinkCacheValidTime(link.getValidDate()), TimeUnit.SECONDS);
+        long linkCacheValidTime = ShortLinkUtils.getLinkCacheValidTime(link.getValidDate());
+        if (linkCacheValidTime > 0) {
+            stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + fullShortUrl, link.getOriginUrl(), ShortLinkUtils.getLinkCacheValidTime(link.getValidDate()), TimeUnit.SECONDS);
+        } else {
+            stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + fullShortUrl, link.getOriginUrl());
+        }
 
         // 存入过滤器
         filter.add(fullShortUrl);
@@ -194,7 +204,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             if (changeTypeOrDateAndUrl) {
                 // 更新完之后删除缓存
                 try {
-                    stringRedisTemplate.delete(SHORT_URL_KEY + byId.getShortUri());
+                    stringRedisTemplate.delete(SHORT_URL_KEY + byId.getFullShortUrl());
                 } catch (Exception e) {
                     TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
                     log.error("删除缓存失败{}", e.getMessage());
@@ -279,54 +289,61 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     }
 
     @Override
-    public void decode(String shortUrlKey, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        long loginIdAsLong = StpUtil.getLoginIdAsLong();
+    public String decode(String shortUrlKey, HttpServletResponse response, HttpServletRequest request) throws IOException {
+        long loginIdAsLong = 1;
         User user = userMapper.selectById(loginIdAsLong);
-        if (user == null) {
-            throw new BizException("未找到登录信息");
-        }
 
+        String fullShortUrl = String.format("%s/%s", domain, shortUrlKey);
+        System.out.println(1);
+        String url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + fullShortUrl);
+        System.out.println(2);
+        if (StrUtil.isNotBlank(url)) {
+            buildLogs(request, user == null ? null : user.getRealName(), fullShortUrl);
+            countToRedis(fullShortUrl, request);
+            return url;
+        }
+        System.out.println(3);
         // 防止一直请求一个不存在的
-        String isNull = stringRedisTemplate.opsForValue().get("SHORT_NULL_URL_KEY" + shortUrlKey);
-        if (StrUtil.isBlank(isNull)) {
-            response.sendRedirect("https://xunmeng.qq.com/");
+        String isNull = stringRedisTemplate.opsForValue().get("SHORT_NULL_URL_KEY" + fullShortUrl);
+        if (StrUtil.isNotBlank(isNull)) {
+            return "https://xunmeng.qq.com/";
         }
-
-
-        String url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + shortUrlKey);
-        if (StrUtil.isBlank(url)) {
-            response.sendRedirect("https://xunmeng.qq.com/");
+        System.out.println(4);
+        if (!filter.contains(fullShortUrl)) {
+            return "https://xunmeng.qq.com/";
         }
-        if (!filter.contains(shortUrlKey)) {
-            response.sendRedirect("https://xunmeng.qq.com/");
-        }
-
-        // 布隆过滤器中存在且
-        RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + shortUrlKey);
+        System.out.println(5);
+        // 如果没有从redis中查到，但布隆过滤器中存在且还没查数据库
+        RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + fullShortUrl);
         redisLock.lock();
+        System.out.println(6);
         try {
-            url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + shortUrlKey);
-
+            url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + fullShortUrl);
             if (StrUtil.isBlank(url)) {
-                response.sendRedirect("https://xunmeng.qq.com/");
                 QueryWrapper<Link> linkQueryWrapper = new QueryWrapper<>();
-                linkQueryWrapper.eq("full_short_url", shortUrlKey);
+                linkQueryWrapper.eq("full_short_url", fullShortUrl);
                 linkQueryWrapper.eq("del_time", 0);
                 linkQueryWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
                 Link one = this.getOne(linkQueryWrapper);
                 if (one == null) {
-                    stringRedisTemplate.opsForValue().set(SHORT_NULL_URL_KEY + shortUrlKey, "-", 30, TimeUnit.SECONDS);
-                    response.sendRedirect("https://xunmeng.qq.com/");
+                    stringRedisTemplate.opsForValue().set(SHORT_NULL_URL_KEY + fullShortUrl, "-", 30, TimeUnit.SECONDS);
+                    return "https://xunmeng.qq.com/";
                 } else if (one.getValidDate() != null && LocalDateTime.now().isAfter(one.getValidDate())) {
-                    response.sendRedirect("https://xunmeng.qq.com/");
+                    return "https://xunmeng.qq.com/";
                 } else {
-                    stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + shortUrlKey, one.getOriginUrl(), ShortLinkUtils.getLinkCacheValidTime(one.getValidDate()), TimeUnit.SECONDS);
+                    if (one.getValidDateType().equalsValue(ValiDateStatus.FOREVER.getValue())) {
+                        stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + fullShortUrl, one.getOriginUrl());
+                    } else {
+                        stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + fullShortUrl, one.getOriginUrl(), ShortLinkUtils.getLinkCacheValidTime(one.getValidDate()), TimeUnit.SECONDS);
+                    }
                     response.sendRedirect(one.getOriginUrl());
+                    return one.getOriginUrl();
                 }
             } else {
                 buildLogs(request, user.getRealName(), shortUrlKey);
-                countToRedis(shortUrlKey, request);
+                countToRedis(fullShortUrl, request);
                 response.sendRedirect(url);
+                return url;
             }
         } finally {
             redisLock.unlock();
@@ -337,16 +354,9 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
 
     private void countToRedis(String shortUrlKey, HttpServletRequest request) {
         String ip = request.getRemoteAddr();
-        Long uv = stringRedisTemplate.opsForSet().add("uv:" + shortUrlKey, ip);
-
-        // 统计PV
-        Long pv = stringRedisTemplate.opsForHyperLogLog().add("pv:" + shortUrlKey, ip);
-
-        // 统计IP数
-        Long ipCount = stringRedisTemplate.opsForSet().add("ip:" + shortUrlKey, ip);
-
-        CountVo countVoBuilder = CountVo.builder().totalPv(pv).totalUv(uv).totalUip(ipCount).fullShortUrl(shortUrlKey).build();
-        rabbitMqHelper.send(MqConstants.Exchange.SHORT_EXCHANGE, MqConstants.Key.SHORT_COUNT_KEY_PREFIX, countVoBuilder);
+        String device = ShortLinkUtils.getDevice(request);
+        IpVo build = IpVo.builder().ip(ip).device(device).fullShortUrl(shortUrlKey).build();
+        rabbitMqHelper.send(MqConstants.Exchange.SHORT_EXCHANGE, MqConstants.Key.SHORT_COUNT_KEY_PREFIX, build);
     }
 
 

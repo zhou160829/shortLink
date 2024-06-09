@@ -1,5 +1,7 @@
 package com.zhou.shortlink.enums;
 
+import com.baomidou.mybatisplus.annotation.EnumValue;
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -8,6 +10,8 @@ import lombok.Getter;
 public enum DeleteFlag implements BaseEnum {
     NO_DELETE(0, "未删除"), DELETE(1, "已删除"),
     ;
+    @JsonValue
+    @EnumValue
     private final int value;
     private final String desc;
 

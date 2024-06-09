@@ -18,11 +18,11 @@ public class RedisConstants {
     public static final String USER_INFO_KEY_LOGIN_COUNT = "3";
 
 
-    public static final String SHORT_URL_KEY = "short:url";
+    public static final String SHORT_URL_KEY = "short:url:";
 
-    public static final String SHORT_NULL_URL_KEY = "short:url:null";
+    public static final String SHORT_NULL_URL_KEY = "short:url:null:";
 
-    public static final String SHORT_URL_KEY_LOCK = "short:url:lock";
+    public static final String SHORT_URL_KEY_LOCK = "short:url:lock:";
 
-    public static final String SHORT_URL_KEY_SCORE = "short:url:score";
+    public static final String SHORT_URL_KEY_SCORE = "short:url:score:";
 }

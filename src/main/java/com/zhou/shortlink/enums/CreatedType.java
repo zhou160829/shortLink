@@ -1,5 +1,7 @@
 package com.zhou.shortlink.enums;
 
+import com.baomidou.mybatisplus.annotation.EnumValue;
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -8,6 +10,8 @@ import lombok.Getter;
 public enum CreatedType implements BaseEnum {
     INTERFACE(0, "接口创建"), CONSOLE(1, "控制台创建"),
     ;
+    @JsonValue
+    @EnumValue
     private final int value;
     private final String desc;
 

@@ -1,5 +1,7 @@
 package com.zhou.shortlink.enums;
 
+import com.baomidou.mybatisplus.annotation.EnumValue;
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -9,6 +11,8 @@ public enum EnableStatus implements BaseEnum {
     ENABLE(0, "启用"),
     DISABLE(1, "禁用"),
     ;
+    @JsonValue
+    @EnumValue
     private final int value;
     private final String desc;
 

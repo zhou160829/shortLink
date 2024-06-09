@@ -6,7 +6,7 @@ import com.zhou.shortlink.constant.MqConstants;
 import com.zhou.shortlink.domain.Link;
 import com.zhou.shortlink.domain.LinkLogs;
 import com.zhou.shortlink.domain.LinkToday;
-import com.zhou.shortlink.domain.vo.CountVo;
+import com.zhou.shortlink.domain.vo.IpVo;
 import com.zhou.shortlink.enums.DeleteFlag;
 import com.zhou.shortlink.service.LinkLogsService;
 import com.zhou.shortlink.service.LinkService;
@@ -18,6 +18,7 @@ import org.springframework.amqp.rabbit.annotation.Exchange;
 import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.QueueBinding;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,9 @@ public class ShortMessageHandler {
 
     @Resource
     LinkTodayService linkTodayService;
+
+    @Resource
+    StringRedisTemplate stringRedisTemplate;
 
     @Resource
     LinkService linkService;
@@ -54,9 +58,21 @@ public class ShortMessageHandler {
             key = MqConstants.Key.SHORT_COUNT_KEY_PREFIX
     ))
     @Transactional
-    public void listenCount(CountVo countVo) {
+    public void listenCount(IpVo ipVo) {
         LocalDate now = LocalDate.now();
-        String fullShortUrl = countVo.getFullShortUrl();
+        String fullShortUrl = ipVo.getFullShortUrl();
+        String ip = ipVo.getIp();
+        String device = ipVo.getDevice();
+
+        stringRedisTemplate.opsForSet().add("uv:" + fullShortUrl, device);
+        // 统计PV
+        stringRedisTemplate.opsForHyperLogLog().add("pv:" + fullShortUrl, ip);
+        // 统计IP数
+        stringRedisTemplate.opsForSet().add("ip:" + fullShortUrl, ip);
+
+        Long uv = stringRedisTemplate.opsForSet().size("uv:" + fullShortUrl);
+        Long pv = stringRedisTemplate.opsForHyperLogLog().size("pv:" + fullShortUrl);
+        Long ipv = stringRedisTemplate.opsForSet().size("ip:" + fullShortUrl);
 
 
         QueryWrapper<LinkToday> linkTodayQueryWrapper = new QueryWrapper<>();
@@ -71,7 +87,7 @@ public class ShortMessageHandler {
         linkQueryWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
         Link link = linkService.getOne(linkQueryWrapper);
 
-        LinkToday linkToday = LinkToday.builder().todayPv(countVo.getTotalPv()).todayUv(countVo.getTotalUv()).todayUip(countVo.getTotalUip()).date(now).createTime(LocalDateTime.now()).delFlag(DeleteFlag.NO_DELETE).fullShortUrl(fullShortUrl).build();
+        LinkToday linkToday = LinkToday.builder().todayPv(pv).todayUv(uv).todayUip(ipv).date(now).createTime(LocalDateTime.now()).delFlag(DeleteFlag.NO_DELETE).fullShortUrl(fullShortUrl).build();
         if (one == null) {
             linkTodayService.save(linkToday);
         } else {
@@ -80,9 +96,10 @@ public class ShortMessageHandler {
         }
 
         UpdateWrapper<Link> linkUpdateWrapper = new UpdateWrapper<>();
-        linkUpdateWrapper.setSql("total_pv = total_pv + " + countVo.getTotalPv());
-        linkUpdateWrapper.setSql("total_uv = total_uv + " + countVo.getTotalUv());
-        linkUpdateWrapper.setSql("total_uip = total_uip + " + countVo.getTotalUip());
+        linkUpdateWrapper.setSql("total_pv = total_pv + " + pv);
+        linkUpdateWrapper.setSql("total_uv = total_uv + " + uv);
+        linkUpdateWrapper.setSql("total_uip = total_uip + " + ipv);
+        linkUpdateWrapper.eq("id", link.getId());
 
         linkService.update(linkUpdateWrapper);
 
