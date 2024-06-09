@@ -1,5 +1,6 @@
 package com.zhou.shortlink.handler;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.zhou.shortlink.constant.MqConstants;
@@ -64,15 +65,16 @@ public class ShortMessageHandler {
         String ip = ipVo.getIp();
         String device = ipVo.getDevice();
 
-        stringRedisTemplate.opsForSet().add("uv:" + fullShortUrl, device);
+        stringRedisTemplate.opsForHyperLogLog().add("uv:" + fullShortUrl, device);
         // 统计PV
-        stringRedisTemplate.opsForHyperLogLog().add("pv:" + fullShortUrl, ip);
+        stringRedisTemplate.opsForValue().increment("pv:" + fullShortUrl, 1);
         // 统计IP数
-        stringRedisTemplate.opsForSet().add("ip:" + fullShortUrl, ip);
+        stringRedisTemplate.opsForHyperLogLog().add("ip:" + fullShortUrl, ip);
 
-        Long uv = stringRedisTemplate.opsForSet().size("uv:" + fullShortUrl);
-        Long pv = stringRedisTemplate.opsForHyperLogLog().size("pv:" + fullShortUrl);
-        Long ipv = stringRedisTemplate.opsForSet().size("ip:" + fullShortUrl);
+        Long uv = stringRedisTemplate.opsForHyperLogLog().size("uv:" + fullShortUrl);
+        String pvStr = stringRedisTemplate.opsForValue().get("pv:" + fullShortUrl);
+        Long pv = Long.valueOf(StrUtil.isNotBlank(pvStr) ? pvStr : "0L");
+        Long ipv = stringRedisTemplate.opsForHyperLogLog().size("ip:" + fullShortUrl);
 
 
         QueryWrapper<LinkToday> linkTodayQueryWrapper = new QueryWrapper<>();

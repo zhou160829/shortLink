@@ -1,5 +1,6 @@
 package com.zhou.shortlink.controller;
 
+import com.zhou.shortlink.result.R;
 import com.zhou.shortlink.service.LinkService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,13 +28,14 @@ public class DecodeController {
     HttpServletRequest request;
 
     @GetMapping(value = "{shortUrlKey}")
-    public void decode(@PathVariable String shortUrlKey) throws IOException {
+    public R decode(@PathVariable String shortUrlKey) throws IOException {
         String decode = linkService.decode(shortUrlKey, response, request);
-        try {
-            response.sendRedirect(decode);
-        } catch (IOException e) {
-            log.error("重定向错误{}", decode);
-        }
+//        try {
+//            response.sendRedirect(decode);
+//        } catch (IOException e) {
+//            log.error("重定向错误{}", decode);
+//        }
+        return R.data(decode);
 
     }
 }

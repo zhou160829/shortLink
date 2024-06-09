@@ -18,7 +18,6 @@ import com.zhou.shortlink.domain.Link;
 import com.zhou.shortlink.domain.LinkLogs;
 import com.zhou.shortlink.domain.LinkToday;
 import com.zhou.shortlink.domain.User;
-import com.zhou.shortlink.domain.vo.CountVo;
 import com.zhou.shortlink.domain.vo.IpVo;
 import com.zhou.shortlink.enums.DeleteFlag;
 import com.zhou.shortlink.enums.EnableStatus;
@@ -36,10 +35,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.redis.core.RedisOperations;
-import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -176,6 +172,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                 String fullShortUrl = String.format("%s/%s", domain, shortUrlKey);
                 link.setDomain(domain).setShortUri(shortUrlKey).setFullShortUrl(fullShortUrl);
                 try {
+                    link.setTotalUip(0).setTotalPv(0).setTotalUv(0);
                     this.updateById(link);
                 } catch (DuplicateKeyException e) {
                     if (!filter.contains(fullShortUrl)) {
@@ -189,6 +186,9 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                 linkTodayUpdateWrapper.set("full_short_url", fullShortUrl);
                 linkTodayUpdateWrapper.eq("full_short_url", byId.getFullShortUrl());
                 linkTodayUpdateWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
+                linkTodayUpdateWrapper.eq("today_uv", 0L);
+                linkTodayUpdateWrapper.eq("today_pv", 0L);
+                linkTodayUpdateWrapper.eq("today_uip", 0L);
                 linkTodayMapper.update(linkTodayUpdateWrapper);
 
                 UpdateWrapper<LinkLogs> logsUpdateWrapper = new UpdateWrapper<>();
@@ -204,7 +204,12 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             if (changeTypeOrDateAndUrl) {
                 // 更新完之后删除缓存
                 try {
+                    stringRedisTemplate.multi();
                     stringRedisTemplate.delete(SHORT_URL_KEY + byId.getFullShortUrl());
+                    stringRedisTemplate.delete("uv" + byId.getFullShortUrl());
+                    stringRedisTemplate.delete("pv" + byId.getFullShortUrl());
+                    stringRedisTemplate.delete("ipv" + byId.getFullShortUrl());
+                    stringRedisTemplate.exec();
                 } catch (Exception e) {
                     TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
                     log.error("删除缓存失败{}", e.getMessage());
@@ -247,6 +252,13 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             linkTodayUpdateWrapper.set("del_flag", DeleteFlag.DELETE);
             linkTodayMapper.update(linkTodayUpdateWrapper);
             stringRedisTemplate.delete(SHORT_URL_KEY + fullUrl);
+
+            stringRedisTemplate.multi();
+            stringRedisTemplate.delete("uv" + fullUrl);
+            stringRedisTemplate.delete("pv" + fullUrl);
+            stringRedisTemplate.delete("ipv" + fullUrl);
+            stringRedisTemplate.exec();
+
             return true;
         } catch (RuntimeException e) {
             log.error("fail", e);
@@ -294,15 +306,13 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         User user = userMapper.selectById(loginIdAsLong);
 
         String fullShortUrl = String.format("%s/%s", domain, shortUrlKey);
-        System.out.println(1);
         String url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + fullShortUrl);
-        System.out.println(2);
+
         if (StrUtil.isNotBlank(url)) {
             buildLogs(request, user == null ? null : user.getRealName(), fullShortUrl);
             countToRedis(fullShortUrl, request);
             return url;
         }
-        System.out.println(3);
         // 防止一直请求一个不存在的
         String isNull = stringRedisTemplate.opsForValue().get("SHORT_NULL_URL_KEY" + fullShortUrl);
         if (StrUtil.isNotBlank(isNull)) {
