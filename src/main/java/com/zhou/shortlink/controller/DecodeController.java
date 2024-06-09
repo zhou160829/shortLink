@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 
 @RestController
-@RequestMapping
+@RequestMapping("/decode")
 @Slf4j
 public class DecodeController {
 
@@ -28,14 +28,13 @@ public class DecodeController {
     HttpServletRequest request;
 
     @GetMapping(value = "{shortUrlKey}")
-    public R decode(@PathVariable String shortUrlKey) throws IOException {
+    public void decode(@PathVariable String shortUrlKey) throws IOException {
         String decode = linkService.decode(shortUrlKey, response, request);
-//        try {
-//            response.sendRedirect(decode);
-//        } catch (IOException e) {
-//            log.error("重定向错误{}", decode);
-//        }
-        return R.data(decode);
+        try {
+            response.sendRedirect(decode);
+        } catch (IOException e) {
+            log.error("重定向错误{}", decode);
+        }
 
     }
 }

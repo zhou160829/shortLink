@@ -1,0 +1,101 @@
+server:
+  port: 9527
+
+spring:
+  application:
+    name: shortLink
+
+  rabbitmq:
+    host: xx
+    port: 5679
+    username: xx
+    password: xx
+    listener:
+      simple:
+        #消费者最小数量
+        concurrency: 10
+        #消费者最大数量
+        max-concurrency: 10
+        #限制消费者，每次只能处理一条消息，处理完才能继续下一条消息
+        prefetch: 1
+        #启动时是否默认启动容器，默认为 true
+        auto-startup: true
+        #被拒绝时重新进入队列的
+        default-requeue-rejected: true
+        retry:
+          #启用消息重试机制，默认为 false
+          enabled: true
+          #初始重试间隔时间
+          initial-interval: 1000ms
+          #重试最大次数，默认为 3 次
+          max-attempts: 3
+          #重试最大时间间隔，默认 10000ms
+          max-interval: 10000ms
+          #重试的间隔乘数，
+          #配置 2 的话，第一次等 1s，第二次等 2s，第三次等 4s
+          multiplier: 1
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://xx:3306/short_link?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: xx
+    password: xx
+  data:
+    redis:
+      # Redis数据库索引（默认为0）
+      database: 0
+      # Redis服务器地址
+      host: xx
+      # Redis服务器连接端口
+      port: 6379
+      # Redis服务器连接密码（默认为空）
+      # password:
+      # 连接超时时间
+      timeout: 10s
+      lettuce:
+        pool:
+          # 连接池最大连接数
+          max-active: 200
+          # 连接池最大阻塞等待时间（使用负值表示没有限制）
+          max-wait: -1ms
+          # 连接池中的最大空闲连接
+          max-idle: 10
+          # 连接池中的最小空闲连接
+          min-idle: 0
+      password: xx
+
+short:
+  domain: http://localhost:9527/decode
+  xxl-job:
+    accessToken: default_token
+    admin:
+      address: xx
+    executor:
+      app-name: ${spring.application.name}
+      log-path: job/${spring.application.name}
+      log-retention-days: 10
+
+  white:
+    domain:
+      details:
+        - baidu.com
+        - zhihu.com
+        - csdn.net
+
+############## Sa-Token 配置 (文档: https://sa-token.cc) ##############
+sa-token:
+  # token 名称（同时也是 cookie 名称）
+  token-name: satoken
+  # token 有效期（单位：秒） 默认30天，-1 代表永久有效
+  timeout: 2592000
+  # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
+  active-timeout: -1
+  # 是否允许同一账号多地同时登录 （为 true 时允许一起登录, 为 false 时新登录挤掉旧登录）
+  is-concurrent: true
+  # 在多人登录同一账号时，是否共用一个 token （为 true 时所有登录共用一个 token, 为 false 时每次登录新建一个 token）
+  is-share: true
+  # token 风格（默认可取值：uuid、simple-uuid、random-32、random-64、random-128、tik）
+  token-style: uuid
+  # 是否输出操作日志
+  is-log: true
+

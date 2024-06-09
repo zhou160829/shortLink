@@ -302,7 +302,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
 
     @Override
     public String decode(String shortUrlKey, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        long loginIdAsLong = 1;
+        long loginIdAsLong = StpUtil.getLoginIdAsLong();
         User user = userMapper.selectById(loginIdAsLong);
 
         String fullShortUrl = String.format("%s/%s", domain, shortUrlKey);
@@ -318,11 +318,9 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         if (StrUtil.isNotBlank(isNull)) {
             return "https://xunmeng.qq.com/";
         }
-        System.out.println(4);
         if (!filter.contains(fullShortUrl)) {
             return "https://xunmeng.qq.com/";
         }
-        System.out.println(5);
         // 如果没有从redis中查到，但布隆过滤器中存在且还没查数据库
         RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + fullShortUrl);
         redisLock.lock();
