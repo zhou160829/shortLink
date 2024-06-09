@@ -1,10 +1,13 @@
 package com.zhou.shortlink.util;
 
+import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.hutool.core.util.StrUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.codec.digest.DigestUtils;
 
 import java.net.URI;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Random;
 
 public class ShortLinkUtils {
@@ -53,6 +56,23 @@ public class ShortLinkUtils {
         }
 
         return resUrl[new Random().nextInt(4)];
+    }
+
+    //说明此工具类下面方法来自于https://gitee.com/nageoffer/shortlink/blob/main/project/src/main/java/com/nageoffer/shortlink/project/toolkit/LinkUtil.java
+
+    /**
+     * 获取短链接缓存有效期时间
+     *
+     * @param validDate 有效期时间
+     * @return 有限期时间戳
+     */
+    public static long getLinkCacheValidTime(LocalDateTime validDate) {
+        if (validDate == null) {
+            return -1L;
+        } else {
+            Duration between = LocalDateTimeUtil.between(LocalDateTime.now(), validDate);
+            return between.toSeconds();
+        }
     }
 
     /**

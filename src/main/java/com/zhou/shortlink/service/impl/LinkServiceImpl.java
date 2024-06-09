@@ -2,7 +2,6 @@ package com.zhou.shortlink.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.bloomfilter.BitMapBloomFilter;
-import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.URLUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -29,9 +28,11 @@ import com.zhou.shortlink.mapper.LinkTodayMapper;
 import com.zhou.shortlink.mapper.UserMapper;
 import com.zhou.shortlink.service.LinkService;
 import com.zhou.shortlink.util.ShortLinkUtils;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -41,11 +42,13 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.io.IOException;
 import java.net.URL;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+import static com.zhou.shortlink.constant.RedisConstants.SHORT_NULL_URL_KEY;
 import static com.zhou.shortlink.constant.RedisConstants.SHORT_URL_KEY;
 
 /**
@@ -54,6 +57,7 @@ import static com.zhou.shortlink.constant.RedisConstants.SHORT_URL_KEY;
  * @createDate 2024-06-07 23:30:47
  */
 @Service
+@Slf4j
 public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         implements LinkService {
 
@@ -86,6 +90,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     @Resource
     LinkTodayMapper linkTodayMapper;
 
+    @Transactional
     @Override
     public boolean add(Link link) {
         String originUrl = link.getOriginUrl();
@@ -124,9 +129,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             throw new BizException(String.format("短链接：%s 生成重复", fullShortUrl));
         }
 
-        Duration between = LocalDateTimeUtil.between(LocalDateTime.now(), link.getValidDate());
-        long seconds = between.toSeconds();
-        stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + shortUrlKey, link.getOriginUrl(), seconds, TimeUnit.SECONDS);
+        stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + shortUrlKey, link.getOriginUrl(), ShortLinkUtils.getLinkCacheValidTime(link.getValidDate()), TimeUnit.SECONDS);
 
         // 存入过滤器
         filter.add(fullShortUrl);
@@ -153,28 +156,23 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         redisLock.lock();
 
         try {
-            LocalDateTime now = LocalDateTime.now();
-            link.setUpdateTime(now);
-            // 如果源地址改变
+            link.setUpdateTime(LocalDateTime.now());
+            boolean changeTypeOrDateAndUrl = !Objects.equals(byId.getValidDateType(), link.getValidDateType())
+                    || !Objects.equals(byId.getValidDate(), link.getValidDate())
+                    || !Objects.equals(byId.getOriginUrl(), link.getOriginUrl());
+            // 如果改变了地址
             if (!byId.getOriginUrl().equals(link.getOriginUrl())) {
-                Duration between = LocalDateTimeUtil.between(now, link.getValidDate());
-                long seconds = between.toSeconds();
-
-                // 计算链接
                 String shortUrlKey = ShortLinkUtils.shortUrl(originUrl);
                 String fullShortUrl = String.format("%s/%s", domain, shortUrlKey);
-
                 link.setDomain(domain).setShortUri(shortUrlKey).setFullShortUrl(fullShortUrl);
-
-                boolean update = false;
                 try {
-                    update = this.updateById(link);
+                    this.updateById(link);
                 } catch (DuplicateKeyException e) {
                     if (!filter.contains(fullShortUrl)) {
                         filter.add(fullShortUrl);
                     }
                     // 记录日志或发送警报通知
-                    log.error("短链接生成重复：" + fullShortUrl, e);
+                    log.error("短链接生成重复：{}", fullShortUrl, e);
                     throw new BizException(String.format("短链接：%s 生成重复", fullShortUrl));
                 }
                 UpdateWrapper<LinkToday> linkTodayUpdateWrapper = new UpdateWrapper<>();
@@ -189,14 +187,21 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                 logsUpdateWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
                 linkLogsMapper.update(logsUpdateWrapper);
 
-                stringRedisTemplate.delete(SHORT_URL_KEY + byId.getShortUri());
-
-                stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + shortUrlKey, link.getOriginUrl(), seconds, TimeUnit.SECONDS);
                 filter.add(fullShortUrl);
-                return update;
             } else {
-                return this.updateById(link);
+                this.updateById(link);
             }
+            if (changeTypeOrDateAndUrl) {
+                // 更新完之后删除缓存
+                try {
+                    stringRedisTemplate.delete(SHORT_URL_KEY + byId.getShortUri());
+                } catch (Exception e) {
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                    log.error("删除缓存失败{}", e.getMessage());
+                    throw new BizException("出现位置异常");
+                }
+            }
+            return true;
         } finally {
             redisLock.unlock();
         }
@@ -208,7 +213,6 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     public boolean deleteLink(Long id) {
         RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + id);
         redisLock.lock();
-        String fullUrl = null;
         try {
             LocalDateTime currentDate = LocalDateTime.now();
             long timestamp = currentDate.toInstant(ZoneOffset.UTC).toEpochMilli();
@@ -217,8 +221,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             link.setId(id);
             link.setDelTime(timestamp);
             link.setDelFlag(DeleteFlag.DELETE);
-            fullUrl = link.getFullShortUrl();
-
+            String fullUrl = link.getFullShortUrl();
 
             this.updateById(link);
             UpdateWrapper<LinkLogs> logsUpdateWrapper = new UpdateWrapper<>();
@@ -233,14 +236,13 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             linkTodayUpdateWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
             linkTodayUpdateWrapper.set("del_flag", DeleteFlag.DELETE);
             linkTodayMapper.update(linkTodayUpdateWrapper);
-
+            stringRedisTemplate.delete(SHORT_URL_KEY + fullUrl);
             return true;
         } catch (RuntimeException e) {
             log.error("fail", e);
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return false;
         } finally {
-            stringRedisTemplate.delete(SHORT_URL_KEY + fullUrl);
             redisLock.unlock();
         }
 
@@ -284,25 +286,52 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             throw new BizException("未找到登录信息");
         }
 
+        // 防止一直请求一个不存在的
+        String isNull = stringRedisTemplate.opsForValue().get("SHORT_NULL_URL_KEY" + shortUrlKey);
+        if (StrUtil.isBlank(isNull)) {
+            response.sendRedirect("https://xunmeng.qq.com/");
+        }
+
+
         String url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + shortUrlKey);
         if (StrUtil.isBlank(url)) {
             response.sendRedirect("https://xunmeng.qq.com/");
-        } else {
-            RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + shortUrlKey);
-            redisLock.lock();
-            try {
-                url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + shortUrlKey);
-                if (StrUtil.isBlank(url)) {
+        }
+        if (!filter.contains(shortUrlKey)) {
+            response.sendRedirect("https://xunmeng.qq.com/");
+        }
+
+        // 布隆过滤器中存在且
+        RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + shortUrlKey);
+        redisLock.lock();
+        try {
+            url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + shortUrlKey);
+
+            if (StrUtil.isBlank(url)) {
+                response.sendRedirect("https://xunmeng.qq.com/");
+                QueryWrapper<Link> linkQueryWrapper = new QueryWrapper<>();
+                linkQueryWrapper.eq("full_short_url", shortUrlKey);
+                linkQueryWrapper.eq("del_time", 0);
+                linkQueryWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
+                Link one = this.getOne(linkQueryWrapper);
+                if (one == null) {
+                    stringRedisTemplate.opsForValue().set(SHORT_NULL_URL_KEY + shortUrlKey, "-", 30, TimeUnit.SECONDS);
+                    response.sendRedirect("https://xunmeng.qq.com/");
+                } else if (one.getValidDate() != null && LocalDateTime.now().isAfter(one.getValidDate())) {
                     response.sendRedirect("https://xunmeng.qq.com/");
                 } else {
-                    buildLogs(request, user.getRealName(), shortUrlKey);
-                    countToRedis(shortUrlKey, request);
-                    response.sendRedirect(url);
+                    stringRedisTemplate.opsForValue().set(SHORT_URL_KEY + shortUrlKey, one.getOriginUrl(), ShortLinkUtils.getLinkCacheValidTime(one.getValidDate()), TimeUnit.SECONDS);
+                    response.sendRedirect(one.getOriginUrl());
                 }
-            } finally {
-                redisLock.unlock();
+            } else {
+                buildLogs(request, user.getRealName(), shortUrlKey);
+                countToRedis(shortUrlKey, request);
+                response.sendRedirect(url);
             }
+        } finally {
+            redisLock.unlock();
         }
+
 
     }
 
@@ -366,6 +395,28 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                 .createTime(LocalDateTime.now())
                 .build();
         rabbitMqHelper.send(MqConstants.Exchange.SHORT_EXCHANGE, MqConstants.Key.SHORT_KEY_PREFIX, build);
+    }
+
+
+    @PostConstruct
+    private void addDataToBloom() {
+        log.info("开始加载数据至布隆过滤器");
+
+        try {
+            QueryWrapper<Link> linkQueryWrapper = new QueryWrapper<>();
+            linkQueryWrapper.select("full_short_url as fullShortUrl");
+            linkQueryWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
+            linkQueryWrapper.eq("del_time", 0);
+            List<String> fullShortUrls = this.listObjs(linkQueryWrapper);
+
+            for (String fullShortUrl : fullShortUrls) {
+                filter.add(fullShortUrl);
+            }
+        } catch (Exception e) {
+            log.error("加载数据至布隆过滤器失败");
+        }
+
+        log.info("加载数据至布隆过滤器结束");
     }
 
 }
