@@ -81,16 +81,16 @@ public class ShortMessageHandler {
         String ip = ipVo.getIp();
         String device = ipVo.getDevice();
 
-        stringRedisTemplate.opsForHyperLogLog().add("uv:" + fullShortUrl, device);
+        stringRedisTemplate.opsForHyperLogLog().add("uv:" + now + ":" + fullShortUrl, device);
         // 统计PV
-        stringRedisTemplate.opsForValue().increment("pv:" + fullShortUrl, 1);
+        stringRedisTemplate.opsForValue().increment("pv:" + now + ":" + fullShortUrl, 1);
         // 统计IP数
-        stringRedisTemplate.opsForHyperLogLog().add("ip:" + fullShortUrl, ip);
+        stringRedisTemplate.opsForHyperLogLog().add("ip:" + now + ":" + fullShortUrl, ip);
 
-        Long uv = stringRedisTemplate.opsForHyperLogLog().size("uv:" + fullShortUrl);
-        String pvStr = stringRedisTemplate.opsForValue().get("pv:" + fullShortUrl);
+        Long uv = stringRedisTemplate.opsForHyperLogLog().size("uv:" + now + ":" + fullShortUrl);
+        String pvStr = stringRedisTemplate.opsForValue().get("pv:" + now + ":" + fullShortUrl);
         Long pv = Long.valueOf(StrUtil.isNotBlank(pvStr) ? pvStr : "0L");
-        Long ipv = stringRedisTemplate.opsForHyperLogLog().size("ip:" + fullShortUrl);
+        Long ipv = stringRedisTemplate.opsForHyperLogLog().size("ip:" + now + ":" + fullShortUrl);
 
 
         QueryWrapper<LinkToday> linkTodayQueryWrapper = new QueryWrapper<>();
@@ -114,7 +114,7 @@ public class ShortMessageHandler {
         }
 
         UpdateWrapper<Link> linkUpdateWrapper = new UpdateWrapper<>();
-        linkUpdateWrapper.set("total_pv" ,pv);
+        linkUpdateWrapper.set("total_pv", pv);
         linkUpdateWrapper.set("total_uv", uv);
         linkUpdateWrapper.set("total_uip", ipv);
         linkUpdateWrapper.eq("id", link.getId());
