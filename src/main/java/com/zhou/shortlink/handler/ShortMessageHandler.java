@@ -114,9 +114,9 @@ public class ShortMessageHandler {
         }
 
         UpdateWrapper<Link> linkUpdateWrapper = new UpdateWrapper<>();
-        linkUpdateWrapper.setSql("total_pv = total_pv + " + pv);
-        linkUpdateWrapper.setSql("total_uv = total_uv + " + uv);
-        linkUpdateWrapper.setSql("total_uip = total_uip + " + ipv);
+        linkUpdateWrapper.set("total_pv" ,pv);
+        linkUpdateWrapper.set("total_uv", uv);
+        linkUpdateWrapper.set("total_uip", ipv);
         linkUpdateWrapper.eq("id", link.getId());
 
         linkService.update(linkUpdateWrapper);
