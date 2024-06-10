@@ -310,14 +310,14 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
      */
     @Override
     public String decode(String shortUrlKey, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        String username = StpUtil.isLogin()? (String) StpUtil.getExtra("username") :null;
+        long userId = StpUtil.isLogin()? RandomUtil.randomLong(0,100000):0L;
 
 
         String fullShortUrl = String.format("%s/%s", domain, shortUrlKey);
         String url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + fullShortUrl);
 
         if (StrUtil.isNotBlank(url)) {
-            buildLogs(request, username, fullShortUrl);
+            buildLogs(request, userId, fullShortUrl);
             countToRedis(fullShortUrl, request);
             return url;
         }
@@ -355,7 +355,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                     return one.getOriginUrl();
                 }
             } else {
-                buildLogs(request, username, shortUrlKey);
+                buildLogs(request, userId, shortUrlKey);
                 countToRedis(fullShortUrl, request);
                 response.sendRedirect(url);
                 return url;
@@ -402,7 +402,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         return whiteDomainConfig.getDetails().contains(domain);
     }
 
-    private void buildLogs(HttpServletRequest request, String username, String fullShortUrl) {
+    private void buildLogs(HttpServletRequest request, Long userId, String fullShortUrl) {
         String ipAddress = ShortLinkUtils.getActualIp(request);
         String os = ShortLinkUtils.getOs(request);
         String browser = ShortLinkUtils.getBrowser(request);
@@ -412,7 +412,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                 .ip(ipAddress)
                 .os(os)
                 .fullShortUrl(fullShortUrl)
-                .username(username)
+                .userId(userId)
                 .browser(browser)
                 .device(device)
                 .network(network)
