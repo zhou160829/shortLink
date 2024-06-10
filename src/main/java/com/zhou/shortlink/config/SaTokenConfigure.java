@@ -2,7 +2,9 @@ package com.zhou.shortlink.config;
 
 import cn.dev33.satoken.context.SaHolder;
 import cn.dev33.satoken.filter.SaServletFilter;
+import cn.dev33.satoken.jwt.StpLogicJwtForSimple;
 import cn.dev33.satoken.router.SaRouter;
+import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
 import com.zhou.shortlink.result.R;
 import org.springframework.context.annotation.Bean;
@@ -56,6 +58,12 @@ public class SaTokenConfigure {
                     ;
                 })
                 ;
+    }
+
+
+    @Bean
+    public StpLogic getStpLogicJwt() {
+        return new StpLogicJwtForSimple();
     }
 
 }

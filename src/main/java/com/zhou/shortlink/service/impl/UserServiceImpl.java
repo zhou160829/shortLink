@@ -1,5 +1,6 @@
 package com.zhou.shortlink.service.impl;
 
+import cn.dev33.satoken.stp.SaLoginModel;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -50,7 +51,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             }
             throw new BizException("账号或者密码错误");
         }
-        StpUtil.login(user.getId());
+        StpUtil.login(user.getId(), SaLoginModel.create().setExtra("username",user.getRealName()));
         return StpUtil.getTokenValue();
     }
 }

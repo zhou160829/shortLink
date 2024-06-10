@@ -2,6 +2,7 @@ package com.zhou.shortlink.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.bloomfilter.BitMapBloomFilter;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.URLUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -300,16 +301,23 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
 
     }
 
+    /*
+    long loginIdAsLong = RandomUtil.randomLong(0,100);
+            User user = null;
+            if (loginIdAsLong > 0L) {
+                user = userMapper.selectById(loginIdAsLong);
+            }
+     */
     @Override
     public String decode(String shortUrlKey, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        long loginIdAsLong = StpUtil.getLoginIdAsLong();
-        User user = userMapper.selectById(loginIdAsLong);
+        String username = StpUtil.isLogin()? (String) StpUtil.getExtra("username") :null;
+
 
         String fullShortUrl = String.format("%s/%s", domain, shortUrlKey);
         String url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + fullShortUrl);
 
         if (StrUtil.isNotBlank(url)) {
-            buildLogs(request, user == null ? null : user.getRealName(), fullShortUrl);
+            buildLogs(request, username, fullShortUrl);
             countToRedis(fullShortUrl, request);
             return url;
         }
@@ -324,7 +332,6 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         // 如果没有从redis中查到，但布隆过滤器中存在且还没查数据库
         RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + fullShortUrl);
         redisLock.lock();
-        System.out.println(6);
         try {
             url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + fullShortUrl);
             if (StrUtil.isBlank(url)) {
@@ -348,7 +355,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                     return one.getOriginUrl();
                 }
             } else {
-                buildLogs(request, user.getRealName(), shortUrlKey);
+                buildLogs(request, username, shortUrlKey);
                 countToRedis(fullShortUrl, request);
                 response.sendRedirect(url);
                 return url;

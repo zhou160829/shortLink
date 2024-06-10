@@ -20,6 +20,7 @@ import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.QueueBinding;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,13 +44,28 @@ public class ShortMessageHandler {
     @Resource
     LinkService linkService;
 
+    @Resource
+    ThreadPoolTaskExecutor linkLogThreadExecutor;
+
+    @Resource
+    ThreadPoolTaskExecutor countThreadExecutor;
+
     @RabbitListener(bindings = @QueueBinding(
             value = @Queue(name = "short.logs.queue", durable = "true"),
             exchange = @Exchange(name = MqConstants.Exchange.SHORT_EXCHANGE, type = ExchangeTypes.TOPIC),
             key = MqConstants.Key.SHORT_KEY_PREFIX
     ))
     public void listenLogs(LinkLogs linkLogs) {
-        linkLogsService.save(linkLogs);
+        log.info("进入listenLogs任务");
+        linkLogThreadExecutor.execute(() -> {
+            try {
+                linkLogsService.save(linkLogs);
+            } catch (Exception e) {
+                log.error("保存linkLogs时出现异常: {}", e.getMessage(), e);
+                // 可以选择处理异常，比如发送通知或者采取其他适当的措施
+            }
+        });
+        log.info("结束listenLogs任务");
     }
 
 

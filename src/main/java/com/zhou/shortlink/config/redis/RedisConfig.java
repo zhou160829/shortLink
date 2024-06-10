@@ -69,13 +69,13 @@ public class RedisConfig {
     @Bean("ipLimitLua")
     public DefaultRedisScript<Boolean> ipLimitLua() {
         DefaultRedisScript<Boolean> defaultRedisScript = new DefaultRedisScript<>();
-        defaultRedisScript.setScriptText("local count = redis.call('incr',KEYS[1]);\n" +
-                "if count == 1 then\n" +
-                "    redis.call(\"expire\",KEYS[1],ARGV[2])\n" +
-                "end\n" +
-                "if count > tonumber(ARGV[1]) then\n" +
-                "    return false\n" +
-                "end\n" +
+        defaultRedisScript.setScriptText("local count = redis.call('incr',KEYS[1]);" +
+                "if count == 1 then" +
+                "    redis.call('expire',KEYS[1],ARGV[2])" +
+                "end" +
+                "if count > tonumber(ARGV[1]) then" +
+                "    return false" +
+                "end" +
                 "    return true");
         defaultRedisScript.setResultType(Boolean.class);
         return defaultRedisScript;
