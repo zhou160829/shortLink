@@ -2,7 +2,6 @@ package com.zhou.shortlink.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.bloomfilter.BitMapBloomFilter;
-import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.URLUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -310,7 +309,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
      */
     @Override
     public String decode(String shortUrlKey, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        long userId = StpUtil.isLogin()? RandomUtil.randomLong(0,100000):0L;
+        long userId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : 0L;
 
 
         String fullShortUrl = String.format("%s/%s", domain, shortUrlKey);
