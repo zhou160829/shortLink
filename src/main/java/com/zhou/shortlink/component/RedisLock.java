@@ -60,13 +60,13 @@ public class RedisLock implements RLock {
         int maxAttempts = 3;
 
         String script =
-                "if redis.call('exists',KEYS[1]) == 0 or redis.call('hexists',KEYS[1],ARGV[1]) == 1 then " +
-                        "redis.call('hincrby',KEYS[1],ARGV[1],1) " +
-                        "redis.call('expire',KEYS[1],ARGV[2]) " +
-                        "return 1 " +
-                        "else " +
-                        "return 0 " +
-                        "end";
+                    "if redis.call('exists',KEYS[1]) == 0 or redis.call('hexists',KEYS[1],ARGV[1]) == 1 then " +
+                            "redis.call('hincrby',KEYS[1],ARGV[1],1) " +
+                            "redis.call('expire',KEYS[1],ARGV[2]) " +
+                            "return 1 " +
+                            "else " +
+                            "return 0 " +
+                            "end";
 
         while (maxAttempts > 0) {
             if (Boolean.TRUE.equals(stringRedisTemplate.execute(new DefaultRedisScript<>(script, Boolean.class), Arrays.asList(lockName), uuidValue, String.valueOf(expireTime)))) {

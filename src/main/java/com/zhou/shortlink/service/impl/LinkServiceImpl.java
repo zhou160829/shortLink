@@ -204,12 +204,10 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             if (changeTypeOrDateAndUrl) {
                 // 更新完之后删除缓存
                 try {
-                    stringRedisTemplate.multi();
                     stringRedisTemplate.delete(SHORT_URL_KEY + byId.getFullShortUrl());
                     stringRedisTemplate.delete("uv" + byId.getFullShortUrl());
                     stringRedisTemplate.delete("pv" + byId.getFullShortUrl());
                     stringRedisTemplate.delete("ipv" + byId.getFullShortUrl());
-                    stringRedisTemplate.exec();
                 } catch (Exception e) {
                     TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
                     log.error("删除缓存失败{}", e.getMessage());

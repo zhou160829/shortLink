@@ -65,11 +65,10 @@ public class LinkController {
 
         if (link.getValidDateType().equalsValue(ValiDateStatus.CUSTOM.getValue()) && link.getValidDate() == null) {
             return R.error("有效期为自定义时需选择有效期");
-        } else {
-            // todo 判断是否由自定义变为永久
-            if (!link.getValidDate().isAfter(LocalDateTime.now())) {
-                return R.error("有效期不能小于等于当前时间");
-            }
+        }
+
+        if (link.getValidDateType().equalsValue(ValiDateStatus.FOREVER.getValue()) && link.getValidDate() != null && LocalDateTime.now().isAfter(link.getValidDate())) {
+            return R.error("有效期不能小于等于当前时间");
         }
 
 
