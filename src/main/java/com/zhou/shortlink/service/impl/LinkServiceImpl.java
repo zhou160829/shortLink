@@ -183,16 +183,13 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                     throw new BizException(String.format("短链接：%s 生成重复", fullShortUrl));
                 }
                 UpdateWrapper<LinkToday> linkTodayUpdateWrapper = new UpdateWrapper<>();
-                linkTodayUpdateWrapper.set("full_short_url", fullShortUrl);
+                linkTodayUpdateWrapper.set("del_flag", DeleteFlag.DELETE);
                 linkTodayUpdateWrapper.eq("full_short_url", byId.getFullShortUrl());
                 linkTodayUpdateWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
-                linkTodayUpdateWrapper.eq("today_uv", 0L);
-                linkTodayUpdateWrapper.eq("today_pv", 0L);
-                linkTodayUpdateWrapper.eq("today_uip", 0L);
                 linkTodayMapper.update(linkTodayUpdateWrapper);
 
                 UpdateWrapper<LinkLogs> logsUpdateWrapper = new UpdateWrapper<>();
-                logsUpdateWrapper.set("full_short_url", fullShortUrl);
+                logsUpdateWrapper.set("del_flag", DeleteFlag.DELETE);
                 logsUpdateWrapper.eq("full_short_url", byId.getFullShortUrl());
                 logsUpdateWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
                 linkLogsMapper.update(logsUpdateWrapper);
