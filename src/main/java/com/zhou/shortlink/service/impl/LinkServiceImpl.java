@@ -2,6 +2,7 @@ package com.zhou.shortlink.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.bloomfilter.BitMapBloomFilter;
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.URLUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -22,6 +23,7 @@ import com.zhou.shortlink.domain.vo.IpVo;
 import com.zhou.shortlink.enums.DeleteFlag;
 import com.zhou.shortlink.enums.EnableStatus;
 import com.zhou.shortlink.enums.ValiDateStatus;
+import com.zhou.shortlink.es.domain.ElasticLinkVo;
 import com.zhou.shortlink.es.mapper.LinkEsMapper;
 import com.zhou.shortlink.exceptions.BizException;
 import com.zhou.shortlink.mapper.LinkLogsMapper;
@@ -35,8 +37,12 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -47,6 +53,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -130,6 +137,11 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         boolean save = false;
         try {
             save = this.save(link);
+
+            ElasticLinkVo elasticLinkVo = new ElasticLinkVo();
+            BeanUtils.copyProperties(link, elasticLinkVo);
+            rabbitMqHelper.send(MqConstants.Exchange.SHORT_ES_EXCHANGE, MqConstants.Key.SHORT_ES_KEY_PREFIX, elasticLinkVo);
+
         } catch (DuplicateKeyException e) {
             if (!filter.contains(fullShortUrl)) {
                 filter.add(fullShortUrl);
@@ -368,8 +380,23 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             throw new BizException("未找到用户信息");
         }
 
+        QueryBuilder queryBuilder = QueryBuilders.multiMatchQuery(keyWord, "originUrl", "shortUri");
+        PageRequest pageRequest = PageRequest.of(pageNum, pageSize);
 
-        return null;
+        org.springframework.data.domain.Page<ElasticLinkVo> search = linkEsMapper.search(queryBuilder, pageRequest);
+
+        List<ElasticLinkVo> content = search.getContent();
+        Page<Link> linkPage = new Page<>();
+        if (search != null && CollectionUtil.isNotEmpty(content)) {
+            ArrayList<Link> links = new ArrayList<>(content.size());
+            for (ElasticLinkVo elasticLinkVo : search) {
+                Link link = new Link();
+                BeanUtils.copyProperties(elasticLinkVo, link);
+                links.add(link);
+            }
+            linkPage.setRecords(links);
+        }
+        return linkPage;
     }
 
     private void countToRedis(String shortUrlKey, HttpServletRequest request) {

@@ -7,6 +7,9 @@ public interface MqConstants {
         /*异常信息的交换机*/
         String ERROR_EXCHANGE = "error.topic";
         String SHORT_DELETE_EXCHANGE = "short.delete.topic";
+
+
+        String SHORT_ES_EXCHANGE = "short.es.topic";
     }
 
     interface Queue {
@@ -19,6 +22,9 @@ public interface MqConstants {
         String SHORT_KEY_PREFIX = "short.";
         String SHORT_COUNT_KEY_PREFIX = "short.count";
         String SHORT_DELETE_COUNT_KEY_PREFIX = "short.delete.count";
+
+
+        String SHORT_ES_KEY_PREFIX = "short.es.count";
         /*异常RoutingKey的前缀*/
         String ERROR_KEY_PREFIX = "error.";
         String DEFAULT_ERROR_KEY = "error.#";
