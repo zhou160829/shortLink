@@ -21,7 +21,7 @@ public interface LinkService extends IService<Link> {
 
     boolean deleteLink(Long id);
 
-    Page<Link> findList(Integer pageNum, Integer pageSize, Integer groupId);
+    Page<Link> findList(Integer pageNum, Integer pageSize, Integer groupId, String keyWord);
 
     Link findById(Long id);
 

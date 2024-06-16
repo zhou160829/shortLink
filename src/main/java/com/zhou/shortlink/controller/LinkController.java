@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 
 @RestController
@@ -33,7 +32,7 @@ public class LinkController {
 
 
     @PostMapping("/add")
-    @RedisLimitAnnotation(key = "addLink",permitPerSecond = 5,expire = 3)
+    @RedisLimitAnnotation(key = "addLink", permitPerSecond = 5, expire = 3)
     public R addLink(@RequestBody Link link) {
         if (link == null || StrUtil.isEmpty(link.getOriginUrl())
                 || StrUtil.isEmpty(link.getDescribe()) || link.getGroupId() == null) {
@@ -92,15 +91,15 @@ public class LinkController {
     }
 
 
-    @GetMapping("findList/{pageNum}/{pageSize}/{groupId}")
+    @GetMapping("findList/{pageNum}/{pageSize}")
     public R findList(@PathVariable("pageNum") Integer pageNum,
                       @PathVariable("pageSize") Integer pageSize,
-                      @RequestParam("groupId") Integer groupId) {
-        if (pageNum == null || pageSize == null) {
+                      @RequestParam("groupId") Integer groupId, @RequestParam("keyWord") String keyword) {
+        if (pageNum == null || pageSize == null || groupId == null) {
             return R.error("参数错误");
         }
 
-        return R.ok().set("page", linkService.findList(pageNum, pageSize, groupId));
+        return R.ok().set("page", linkService.findList(pageNum, pageSize, groupId, keyword));
     }
 
     @GetMapping("findById/{id}")
@@ -111,7 +110,6 @@ public class LinkController {
 
         return R.data(linkService.findById(id));
     }
-
 
 
 }

@@ -22,6 +22,7 @@ import com.zhou.shortlink.domain.vo.IpVo;
 import com.zhou.shortlink.enums.DeleteFlag;
 import com.zhou.shortlink.enums.EnableStatus;
 import com.zhou.shortlink.enums.ValiDateStatus;
+import com.zhou.shortlink.es.mapper.LinkEsMapper;
 import com.zhou.shortlink.exceptions.BizException;
 import com.zhou.shortlink.mapper.LinkLogsMapper;
 import com.zhou.shortlink.mapper.LinkMapper;
@@ -36,7 +37,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,10 +68,13 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     private final BitMapBloomFilter filter = new BitMapBloomFilter(capacity);
 
     @Resource
-    ElasticsearchTemplate elasticsearchTemplate;
+    ElasticsearchRestTemplate elasticsearchRestTemplate;
 
     @Resource
     UserMapper userMapper;
+
+    @Resource
+    LinkEsMapper linkEsMapper;
 
     @Value("${short.domain}")
     private String domain;
@@ -254,19 +258,17 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     }
 
     @Override
-    public Page<Link> findList(Integer pageNum, Integer pageSize, Integer groupId) {
+    public Page<Link> findList(Integer pageNum, Integer pageSize, Integer groupId, String keyWord) {
         Long userId = StpUtil.getLoginIdAsLong();
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BizException("未找到用户信息");
         }
-
-        Page<Link> linkPage = new Page<>(pageNum, pageSize);
-
-        QueryWrapper<Link> linkQueryWrapper = new QueryWrapper<>();
-        linkQueryWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
-        linkQueryWrapper.eq("group_id", groupId);
-        return this.page(linkPage, linkQueryWrapper);
+        if (StrUtil.isNotBlank(keyWord)) {
+            return findListFromDb(pageNum, pageSize, groupId);
+        }
+        ;
+        return findListFromEs(pageNum, pageSize, groupId, keyWord);
     }
 
     @Override
@@ -347,6 +349,27 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         }
 
 
+    }
+
+    public Page<Link> findListFromDb(Integer pageNum, Integer pageSize, Integer groupId) {
+        Page<Link> linkPage = new Page<>(pageNum, pageSize);
+
+        QueryWrapper<Link> linkQueryWrapper = new QueryWrapper<>();
+        linkQueryWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
+        linkQueryWrapper.eq("group_id", groupId);
+
+        return this.page(linkPage, linkQueryWrapper);
+    }
+
+    public Page<Link> findListFromEs(Integer pageNum, Integer pageSize, Integer groupId, String keyWord) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BizException("未找到用户信息");
+        }
+
+
+        return null;
     }
 
     private void countToRedis(String shortUrlKey, HttpServletRequest request) {
