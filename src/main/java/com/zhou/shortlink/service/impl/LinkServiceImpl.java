@@ -36,6 +36,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +47,6 @@ import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static com.zhou.shortlink.constant.RedisConstants.SHORT_NULL_URL_KEY;
@@ -65,6 +65,9 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     static final int capacity = 1000;
 
     private final BitMapBloomFilter filter = new BitMapBloomFilter(capacity);
+
+    @Resource
+    ElasticsearchTemplate elasticsearchTemplate;
 
     @Resource
     UserMapper userMapper;
@@ -163,9 +166,6 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
 
         try {
             link.setUpdateTime(LocalDateTime.now());
-            boolean changeTypeOrDateAndUrl = !Objects.equals(byId.getValidDateType(), link.getValidDateType())
-                    || !Objects.equals(byId.getValidDate(), link.getValidDate())
-                    || !Objects.equals(byId.getOriginUrl(), link.getOriginUrl());
             // 如果改变了地址
             if (!byId.getOriginUrl().equals(link.getOriginUrl())) {
                 String shortUrlKey = ShortLinkUtils.shortUrl(originUrl);
@@ -194,27 +194,20 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                 logsUpdateWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
                 linkLogsMapper.update(logsUpdateWrapper);
 
+
+                rabbitMqHelper.send(MqConstants.Exchange.SHORT_DELETE_EXCHANGE, MqConstants.Key.SHORT_DELETE_COUNT_KEY_PREFIX, byId.getFullShortUrl());
+
                 filter.add(fullShortUrl);
             } else {
                 this.updateById(link);
             }
-            if (changeTypeOrDateAndUrl) {
-                // 更新完之后删除缓存
-                try {
-                    stringRedisTemplate.delete(SHORT_URL_KEY + byId.getFullShortUrl());
-                    stringRedisTemplate.delete("uv" + byId.getFullShortUrl());
-                    stringRedisTemplate.delete("pv" + byId.getFullShortUrl());
-                    stringRedisTemplate.delete("ipv" + byId.getFullShortUrl());
-                } catch (Exception e) {
-                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-                    log.error("删除缓存失败{}", e.getMessage());
-                    throw new BizException("出现位置异常");
-                }
-            }
-            return true;
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            log.error("出现异常{}", e.getMessage());
         } finally {
             redisLock.unlock();
         }
+        return true;
     }
 
 
@@ -246,13 +239,8 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             linkTodayUpdateWrapper.eq("del_flag", DeleteFlag.NO_DELETE);
             linkTodayUpdateWrapper.set("del_flag", DeleteFlag.DELETE);
             linkTodayMapper.update(linkTodayUpdateWrapper);
-            stringRedisTemplate.delete(SHORT_URL_KEY + fullUrl);
 
-            stringRedisTemplate.multi();
-            stringRedisTemplate.delete("uv" + fullUrl);
-            stringRedisTemplate.delete("pv" + fullUrl);
-            stringRedisTemplate.delete("ipv" + fullUrl);
-            stringRedisTemplate.exec();
+            rabbitMqHelper.send(MqConstants.Exchange.SHORT_DELETE_EXCHANGE, MqConstants.Key.SHORT_DELETE_COUNT_KEY_PREFIX, fullUrl);
 
             return true;
         } catch (RuntimeException e) {

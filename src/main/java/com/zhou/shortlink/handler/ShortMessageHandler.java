@@ -20,12 +20,17 @@ import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.QueueBinding;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+
+import static com.zhou.shortlink.constant.RedisConstants.SHORT_URL_KEY;
 
 @Slf4j
 @Component
@@ -123,4 +128,19 @@ public class ShortMessageHandler {
 
     }
 
+    @RabbitListener(bindings = @QueueBinding(
+            value = @Queue(name = "short.delete.count.queue", durable = "true"),
+            exchange = @Exchange(name = MqConstants.Exchange.SHORT_DELETE_EXCHANGE, type = ExchangeTypes.TOPIC),
+            key = MqConstants.Key.SHORT_DELETE_COUNT_KEY_PREFIX
+    ))
+    @Transactional
+    public void delCountRedis(String fullShortUrl) {
+        List<String> keysToDelete = Arrays.asList(
+                SHORT_URL_KEY + fullShortUrl,
+                "uv" + fullShortUrl,
+                "pv" + fullShortUrl,
+                "ipv" + fullShortUrl
+        );
+        stringRedisTemplate.delete(keysToDelete);
+    }
 }
