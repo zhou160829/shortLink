@@ -19,8 +19,9 @@ import org.springframework.amqp.rabbit.annotation.Exchange;
 import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.QueueBinding;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,12 +86,26 @@ public class ShortMessageHandler {
         String fullShortUrl = ipVo.getFullShortUrl();
         String ip = ipVo.getIp();
         String device = ipVo.getDevice();
+        String keyPrefix = now.toString() + ":" + fullShortUrl;
+        // 使用Pipeline进行批量操作
+        stringRedisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            StringRedisSerializer serializer = new StringRedisSerializer();
 
-        stringRedisTemplate.opsForHyperLogLog().add("uv:" + now + ":" + fullShortUrl, device);
-        // 统计PV
-        stringRedisTemplate.opsForValue().increment("pv:" + now + ":" + fullShortUrl, 1);
-        // 统计IP数
-        stringRedisTemplate.opsForHyperLogLog().add("ip:" + now + ":" + fullShortUrl, ip);
+            // UV统计
+            byte[] uvKey = serializer.serialize("uv:" + keyPrefix);
+            connection.hyperLogLogCommands().pfAdd(uvKey, serializer.serialize(device));
+
+            // PV统计
+            byte[] pvKey = serializer.serialize("pv:" + keyPrefix);
+            connection.stringCommands().incr(pvKey);
+
+            // IP统计
+            byte[] ipKey = serializer.serialize("ip:" + keyPrefix);
+            connection.hyperLogLogCommands().pfAdd(ipKey, serializer.serialize(ip));
+
+            return null;
+        });
+
 
         Long uv = stringRedisTemplate.opsForHyperLogLog().size("uv:" + now + ":" + fullShortUrl);
         String pvStr = stringRedisTemplate.opsForValue().get("pv:" + now + ":" + fullShortUrl);
