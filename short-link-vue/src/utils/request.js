@@ -27,6 +27,9 @@ const instance = axios.create({
     withCredentials: false,
 });
 
+/**
+ * 请求携带
+ */
 instance.interceptors.request.use((config) => {
     const TOKEN = cookie.get("token")
     config.headers = {
@@ -36,8 +39,13 @@ instance.interceptors.request.use((config) => {
     return config
 });
 
-instance.defaults.timeout = 5000;
+instance.defaults.timeout = 2000;
 
+/**
+ * cookie重刷
+ * @param err
+ * @returns {Promise<axios.AxiosResponse<any>|boolean>}
+ */
 async function refreshToken(err) {
     // 尝试刷新token
     let success = await tryRefreshToken();
@@ -81,6 +89,7 @@ function alertLoginMessage() {
 // const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 instance.interceptors.response.use(
     async (response) => {
+        console.log(response,'sssssss')
         // 1.获取业务状态码
         let code = response.data.code;
         // 2.业务状态码为200，直接返回
