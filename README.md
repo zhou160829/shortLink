@@ -16,6 +16,7 @@
 - **数据库**：MySQL/Redis
 - **消息队列**：Rabbitmq
 - **容器化**：Docker
+- **权限框架**：Satoken
 
 ## 环境要求
 
