@@ -15,10 +15,9 @@ import java.time.LocalDateTime;
 import java.util.Date;
 
 /**
- * 
  * @TableName link_today
  */
-@TableName(value ="link_today")
+@TableName(value = "link_today")
 @Data
 @Builder
 @Accessors(chain = true)

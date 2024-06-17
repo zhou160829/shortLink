@@ -46,16 +46,20 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.zhou.shortlink.constant.RedisConstants.SHORT_NULL_URL_KEY;
 import static com.zhou.shortlink.constant.RedisConstants.SHORT_URL_KEY;
@@ -104,6 +108,9 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
 
     @Resource
     LinkTodayMapper linkTodayMapper;
+
+    @Resource
+    PlatformTransactionManager platformTransactionManager;
 
     @Transactional
     @Override
@@ -180,6 +187,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + link.getId());
         redisLock.lock();
 
+        TransactionStatus status = platformTransactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
             link.setUpdateTime(LocalDateTime.now());
             // 如果改变了地址
@@ -214,11 +222,12 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
                 rabbitMqHelper.send(MqConstants.Exchange.SHORT_DELETE_EXCHANGE, MqConstants.Key.SHORT_DELETE_COUNT_KEY_PREFIX, byId.getFullShortUrl());
 
                 filter.add(fullShortUrl);
+                platformTransactionManager.commit(status);
             } else {
                 this.updateById(link);
             }
         } catch (Exception e) {
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            platformTransactionManager.rollback(status);
             log.error("出现异常{}", e.getMessage());
         } finally {
             redisLock.unlock();
@@ -388,12 +397,8 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         List<ElasticLinkVo> content = search.getContent();
         Page<Link> linkPage = new Page<>();
         if (search != null && CollectionUtil.isNotEmpty(content)) {
-            ArrayList<Link> links = new ArrayList<>(content.size());
-            for (ElasticLinkVo elasticLinkVo : search) {
-                Link link = new Link();
-                BeanUtils.copyProperties(elasticLinkVo, link);
-                links.add(link);
-            }
+            List<Long> collect = content.stream().map(ElasticLinkVo::getId).collect(Collectors.toList());
+            List<Link> links = this.listByIds(collect);
             linkPage.setRecords(links);
         }
         return linkPage;
