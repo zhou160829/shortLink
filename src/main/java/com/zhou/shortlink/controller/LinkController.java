@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 
 @RestController
@@ -94,7 +95,7 @@ public class LinkController {
     @GetMapping("findList/{pageNum}/{pageSize}")
     public R findList(@PathVariable("pageNum") Integer pageNum,
                       @PathVariable("pageSize") Integer pageSize,
-                      @RequestParam("groupId") Integer groupId, @RequestParam("keyWord") String keyword) {
+                      @RequestParam("groupId") Integer groupId, @RequestParam("keyWord") String keyword) throws IOException {
         if (pageNum == null || pageSize == null || groupId == null) {
             return R.error("参数错误");
         }

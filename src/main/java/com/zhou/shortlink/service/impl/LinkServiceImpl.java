@@ -2,7 +2,6 @@ package com.zhou.shortlink.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.bloomfilter.BitMapBloomFilter;
-import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.URLUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -15,6 +14,7 @@ import com.zhou.shortlink.config.WhiteDomainConfig;
 import com.zhou.shortlink.config.mq.RabbitMqHelper;
 import com.zhou.shortlink.constant.MqConstants;
 import com.zhou.shortlink.constant.RedisConstants;
+import com.zhou.shortlink.constant.es.ESConstants;
 import com.zhou.shortlink.domain.Link;
 import com.zhou.shortlink.domain.LinkLogs;
 import com.zhou.shortlink.domain.LinkToday;
@@ -24,7 +24,6 @@ import com.zhou.shortlink.enums.DeleteFlag;
 import com.zhou.shortlink.enums.EnableStatus;
 import com.zhou.shortlink.enums.ValiDateStatus;
 import com.zhou.shortlink.es.domain.ElasticLinkVo;
-import com.zhou.shortlink.es.mapper.LinkEsMapper;
 import com.zhou.shortlink.exceptions.BizException;
 import com.zhou.shortlink.mapper.LinkLogsMapper;
 import com.zhou.shortlink.mapper.LinkMapper;
@@ -37,27 +36,34 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
+import org.springframework.util.ObjectUtils;
 
 import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -79,13 +85,10 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     private final BitMapBloomFilter filter = new BitMapBloomFilter(capacity);
 
     @Resource
-    ElasticsearchRestTemplate elasticsearchRestTemplate;
+    RestHighLevelClient restHighLevelClient;
 
     @Resource
     UserMapper userMapper;
-
-    @Resource
-    LinkEsMapper linkEsMapper;
 
     @Value("${short.domain}")
     private String domain;
@@ -279,7 +282,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
     }
 
     @Override
-    public Page<Link> findList(Integer pageNum, Integer pageSize, Integer groupId, String keyWord) {
+    public Page<Link> findList(Integer pageNum, Integer pageSize, Integer groupId, String keyWord) throws IOException {
         Long userId = StpUtil.getLoginIdAsLong();
         User user = userMapper.selectById(userId);
         if (user == null) {
@@ -288,7 +291,6 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         if (StrUtil.isNotBlank(keyWord)) {
             return findListFromDb(pageNum, pageSize, groupId);
         }
-        ;
         return findListFromEs(pageNum, pageSize, groupId, keyWord);
     }
 
@@ -382,25 +384,45 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
         return this.page(linkPage, linkQueryWrapper);
     }
 
-    public Page<Link> findListFromEs(Integer pageNum, Integer pageSize, Integer groupId, String keyWord) {
+    public Page<Link> findListFromEs(Integer pageNum, Integer pageSize, Integer groupId, String keyWord) throws IOException {
         Long userId = StpUtil.getLoginIdAsLong();
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BizException("未找到用户信息");
         }
 
-        QueryBuilder queryBuilder = QueryBuilders.multiMatchQuery(keyWord, "originUrl", "shortUri");
-        PageRequest pageRequest = PageRequest.of(pageNum, pageSize);
 
-        org.springframework.data.domain.Page<ElasticLinkVo> search = linkEsMapper.search(queryBuilder, pageRequest);
+        SearchRequest searchRequest = new SearchRequest(ESConstants.LINK_INDEX);
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
-        List<ElasticLinkVo> content = search.getContent();
-        Page<Link> linkPage = new Page<>();
-        if (search != null && CollectionUtil.isNotEmpty(content)) {
-            List<Long> collect = content.stream().map(ElasticLinkVo::getId).collect(Collectors.toList());
-            List<Link> links = this.listByIds(collect);
-            linkPage.setRecords(links);
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        boolQuery.should(QueryBuilders.matchQuery("shortUri", keyWord));
+        boolQuery.should(QueryBuilders.matchQuery("describe", keyWord));
+        boolQuery.must(QueryBuilders.termQuery("groupId", groupId));
+
+        sourceBuilder.query(boolQuery);
+        sourceBuilder.from((pageNum - 1) * pageSize);
+        sourceBuilder.size(pageSize);
+        sourceBuilder.sort("your_sort_field", SortOrder.ASC); // 可选，按字段排序
+
+        searchRequest.source(sourceBuilder);
+
+        SearchResponse response = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+        SearchHits hits = response.getHits();
+
+        if (ObjectUtils.isEmpty(hits)) {
+            return null;
         }
+        Page<Link> linkPage = new Page<>();
+
+        List<Long> ids = Arrays.stream(hits.getHits())
+                .map(hit -> {
+                    Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+                    return Long.valueOf((String) sourceAsMap.get("id"));
+                })
+                .collect(Collectors.toList());
+        List<Link> links = this.listByIds(ids);
+        linkPage.setRecords(links);
         return linkPage;
     }
 
