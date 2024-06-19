@@ -337,7 +337,7 @@ public class LinkServiceImpl extends ServiceImpl<LinkMapper, Link>
             return "https://xunmeng.qq.com/";
         }
         // 如果没有从redis中查到，但布隆过滤器中存在且还没查数据库
-        RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_KEY_LOCK + fullShortUrl);
+        RLock redisLock = distributedLockFactory.getRedisLock(RedisConstants.SHORT_URL_WRITE_KEY_LOCK + fullShortUrl);
         redisLock.lock();
         try {
             url = stringRedisTemplate.opsForValue().get(SHORT_URL_KEY + fullShortUrl);

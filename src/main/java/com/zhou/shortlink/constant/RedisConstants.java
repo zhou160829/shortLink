@@ -24,5 +24,7 @@ public class RedisConstants {
 
     public static final String SHORT_URL_KEY_LOCK = "short:url:lock:";
 
+    public static final String SHORT_URL_WRITE_KEY_LOCK = "short:url:write:lock:";
+
     public static final String SHORT_URL_KEY_SCORE = "short:url:score:";
 }
