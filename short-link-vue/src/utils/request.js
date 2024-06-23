@@ -23,7 +23,7 @@ let isLogin = true
 
 const instance = axios.create({
     baseURL: host,
-    timeout: 1000,
+    timeout: 5000,
     withCredentials: false,
 });
 
@@ -66,7 +66,7 @@ async function refreshToken(err) {
     return true;
 }
 
-function alertLoginMessage() {
+function    alertLoginMessage() {
     isLogin = false;
     sessionStorage.removeItem('userInfo');
     sessionStorage.removeItem("token");
@@ -89,7 +89,6 @@ function alertLoginMessage() {
 // const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 instance.interceptors.response.use(
     async (response) => {
-        console.log(response,'sssssss')
         // 1.获取业务状态码
         let code = response.data.code;
         // 2.业务状态码为200，直接返回
@@ -98,7 +97,7 @@ instance.interceptors.response.use(
         }
 
         // 3.业务状态码为401，代表未登录
-        if (code === 401 && isLogin) {
+        if (code === 10000 && isLogin) {
             isLogin = false;
             alertLoginMessage();
         }

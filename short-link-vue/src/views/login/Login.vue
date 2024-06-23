@@ -1,10 +1,11 @@
 <script setup>
 import {computed, reactive} from 'vue';
 import {LockOutlined, UserOutlined} from '@ant-design/icons-vue';
-
+import {useRouter} from "vue-router"
 import loginApi from '../../api/login.js';
 import cookie from 'js-cookie'
 
+const router = useRouter()
 const formState = reactive({
   username: '',
   password: '',
@@ -26,7 +27,6 @@ const onFinish = values => {
       .then(response => {
         //第一个参数cookie名称，第二个参数值，第三个参数作用范围
         cookie.set('token', response.data, {domain: 'localhost'})
-
         //第四步 调用接口 根据token获取用户信息，为了首页面显示
         loginApi.getLoginUserInfo()
             .then(response => {
@@ -34,6 +34,7 @@ const onFinish = values => {
               //获取返回用户信息，放到cookie里面
               cookie.set('user', loginInfo, {domain: 'localhost'})
             })
+        router.push({path: '/Home'})
       })
 };
 const onFinishFailed = errorInfo => {

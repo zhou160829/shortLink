@@ -5,13 +5,12 @@ import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class BizException extends RuntimeException{
+public class NotLoginException extends RuntimeException{
     private Integer code;
     private String msg;
-    public BizException(String msg) {
+    public NotLoginException(String msg) {
         super(msg);
-        this.code = 500;
+        this.code = 10000;
         this.msg = msg;
     }
-
 }

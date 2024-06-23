@@ -7,7 +7,8 @@ import cn.dev33.satoken.router.SaHttpMethod;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
-import com.zhou.shortlink.result.R;
+import com.zhou.shortlink.exceptions.NotLoginException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -17,6 +18,7 @@ import org.springframework.core.annotation.Order;
  */
 @Configuration
 @Order(-10)
+@Slf4j
 public class SaTokenConfigure {
 
     /**
@@ -31,8 +33,6 @@ public class SaTokenConfigure {
 
                 // 认证函数: 每次请求执行
                 .setAuth(obj -> {
-                    System.out.println("---------- 进入Sa-Token全局认证 -----------");
-                    System.out.println(StpUtil.getTokenValue());
                     // 登录认证 -- 拦截所有路由，并排除/user/doLogin 用于开放登录
                     SaRouter.match("/**", "/user/login", StpUtil::checkLogin).notMatch("/decode/*");
 
@@ -40,8 +40,8 @@ public class SaTokenConfigure {
 
                 // 异常处理函数：每次认证函数发生异常时执行此函数
                 .setError(e -> {
-                    System.out.println("---------- 进入Sa-Token异常处理 -----------");
-                    return R.error(e.getMessage());
+                    log.error("鉴权错误", e.fillInStackTrace());
+                    throw new NotLoginException("未找到登录信息");
                 })
 
                 // 前置函数：在每次认证函数之前执行
