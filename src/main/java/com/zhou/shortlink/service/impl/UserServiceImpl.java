@@ -14,6 +14,8 @@ import jakarta.annotation.Resource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * @author 82518
  * @description 针对表【user】的数据库操作Service实现
@@ -45,7 +47,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         if (!user.getPassword().equals(userLoginVo.getPassword())) {
             if (o == null) {
-                redisTemplate.opsForValue().set("USER_INFO_KEY_" + userLoginVo.getUsername(), "0");
+                redisTemplate.opsForValue().set("USER_INFO_KEY_" + userLoginVo.getUsername(), "0",180, TimeUnit.SECONDS);
             } else {
                 redisTemplate.opsForValue().increment("USER_INFO_KEY_" + userLoginVo.getUsername());
             }
