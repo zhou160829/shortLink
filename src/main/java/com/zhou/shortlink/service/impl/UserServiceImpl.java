@@ -24,13 +24,16 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
+    private static final String USER_INFO_KEY_PREFIX = "USER_INFO_KEY_";
+    private static final int PASSWORD_INCORRECT_EXPIRE_SECONDS = 180;
+
 
     @Resource
     RedisTemplate<String, String> redisTemplate;
 
     @Override
     public String login(UserLoginVo userLoginVo) {
-        Object o = redisTemplate.opsForValue().get("USER_INFO_KEY_" + userLoginVo.getUsername());
+        Object o = redisTemplate.opsForValue().get(USER_INFO_KEY_PREFIX + userLoginVo.getUsername());
         String count = String.valueOf(o);
         if (RedisConstants.USER_INFO_KEY_LOGIN_COUNT.equals(count)) {
             throw new BizException("错误超过3次请重新再试");
@@ -47,9 +50,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         if (!user.getPassword().equals(userLoginVo.getPassword())) {
             if (o == null) {
-                redisTemplate.opsForValue().set("USER_INFO_KEY_" + userLoginVo.getUsername(), "0",180, TimeUnit.SECONDS);
+                redisTemplate.opsForValue().set(USER_INFO_KEY_PREFIX + userLoginVo.getUsername(), "0",PASSWORD_INCORRECT_EXPIRE_SECONDS, TimeUnit.SECONDS);
             } else {
-                redisTemplate.opsForValue().increment("USER_INFO_KEY_" + userLoginVo.getUsername());
+                redisTemplate.opsForValue().increment(USER_INFO_KEY_PREFIX + userLoginVo.getUsername());
             }
             throw new BizException("账号或者密码错误");
         }
