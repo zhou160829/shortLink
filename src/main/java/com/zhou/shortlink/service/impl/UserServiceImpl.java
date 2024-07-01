@@ -28,7 +28,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public String login(UserLoginVo userLoginVo) {
-        Object o = redisTemplate.opsForValue().get("USER_INFO_KEY" + userLoginVo.getUsername());
+        Object o = redisTemplate.opsForValue().get("USER_INFO_KEY_" + userLoginVo.getUsername());
         String count = String.valueOf(o);
         if (RedisConstants.USER_INFO_KEY_LOGIN_COUNT.equals(count)) {
             throw new BizException("错误超过3次请重新再试");
@@ -45,9 +45,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         if (!user.getPassword().equals(userLoginVo.getPassword())) {
             if (o == null) {
-                redisTemplate.opsForValue().set("USER_INFO_KEY" + user.getId(), "0");
+                redisTemplate.opsForValue().set("USER_INFO_KEY_" + userLoginVo.getUsername(), "0");
             } else {
-                redisTemplate.opsForValue().increment("USER_INFO_KEY" + user.getId());
+                redisTemplate.opsForValue().increment("USER_INFO_KEY_" + userLoginVo.getUsername());
             }
             throw new BizException("账号或者密码错误");
         }
