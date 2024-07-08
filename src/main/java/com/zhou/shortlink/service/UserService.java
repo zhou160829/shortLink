@@ -2,8 +2,8 @@ package com.zhou.shortlink.service;
 
 import com.zhou.shortlink.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.zhou.shortlink.vo.UserLoginVo;
-import com.zhou.shortlink.vo.UserVo;
+import com.zhou.shortlink.domain.vo.user.UserLoginVo;
+import com.zhou.shortlink.domain.vo.user.UserVo;
 
 /**
 * @author 82518
