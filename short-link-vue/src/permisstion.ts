@@ -30,7 +30,7 @@ router.beforeEach((to, from, next) => {
         if (whiteList.includes(to.path)) {
             next();
         } else {
-            next({path: '/login', query: {redirect: to.fullPath}})
+            next({path: '/login'})
         }
     }
 });
