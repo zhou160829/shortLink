@@ -3,6 +3,7 @@ package com.zhou.shortlink.service;
 import com.zhou.shortlink.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zhou.shortlink.vo.UserLoginVo;
+import com.zhou.shortlink.vo.UserVo;
 
 /**
 * @author 82518
@@ -11,5 +12,5 @@ import com.zhou.shortlink.vo.UserLoginVo;
 */
 public interface UserService extends IService<User> {
 
-    String login(UserLoginVo userLoginVo);
+    UserVo login(UserLoginVo userLoginVo);
 }

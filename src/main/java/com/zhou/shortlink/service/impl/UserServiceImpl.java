@@ -10,6 +10,7 @@ import com.zhou.shortlink.exceptions.BizException;
 import com.zhou.shortlink.mapper.UserMapper;
 import com.zhou.shortlink.service.UserService;
 import com.zhou.shortlink.vo.UserLoginVo;
+import com.zhou.shortlink.vo.UserVo;
 import jakarta.annotation.Resource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -32,7 +33,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     RedisTemplate<String, String> redisTemplate;
 
     @Override
-    public String login(UserLoginVo userLoginVo) {
+    public UserVo login(UserLoginVo userLoginVo) {
         Object o = redisTemplate.opsForValue().get(USER_INFO_KEY_PREFIX + userLoginVo.getUsername());
         String count = String.valueOf(o);
         if (RedisConstants.USER_INFO_KEY_LOGIN_COUNT.equals(count)) {
@@ -50,14 +51,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         if (!user.getPassword().equals(userLoginVo.getPassword())) {
             if (o == null) {
-                redisTemplate.opsForValue().set(USER_INFO_KEY_PREFIX + userLoginVo.getUsername(), "0",PASSWORD_INCORRECT_EXPIRE_SECONDS, TimeUnit.SECONDS);
+                redisTemplate.opsForValue().set(USER_INFO_KEY_PREFIX + userLoginVo.getUsername(), "0", PASSWORD_INCORRECT_EXPIRE_SECONDS, TimeUnit.SECONDS);
             } else {
                 redisTemplate.opsForValue().increment(USER_INFO_KEY_PREFIX + userLoginVo.getUsername());
             }
             throw new BizException("账号或者密码错误");
         }
-        StpUtil.login(user.getId(), SaLoginModel.create().setExtra("username",user.getRealName()));
-        return StpUtil.getTokenValue();
+        StpUtil.login(user.getId(), SaLoginModel.create().setExtra("username", user.getRealName()));
+        return UserVo.builder().token(StpUtil.getTokenValue()).realName(user.getRealName()).build();
     }
 }
 

@@ -1,28 +1,38 @@
-<script setup>
-import {h, reactive,} from 'vue';
+<script setup lang="ts">
+import { h, reactive } from 'vue';
+import {
+  MailOutlined,
+  CalendarOutlined,
+  AppstoreOutlined,
+  SettingOutlined,
+} from '@ant-design/icons-vue';
+import type { MenuMode, MenuTheme } from 'ant-design-vue';
+import { ItemType } from 'ant-design-vue';
 
-import {AppstoreOutlined, CalendarOutlined, MailOutlined, SettingOutlined,} from '@ant-design/icons-vue';
-import {useRouter} from 'vue-router'
-
-const router = useRouter()
 const state = reactive({
-  mode: 'inline',
-  theme: 'light',
+  mode: 'inline' as MenuMode,
+  theme: 'light' as MenuTheme,
   selectedKeys: ['1'],
   openKeys: ['sub1'],
 });
 
-function getItem(label, key, icon, children, type) {
+function getItem(
+    label: string,
+    key: string,
+    icon?: any,
+    children?: ItemType[],
+    type?: 'group',
+): ItemType {
   return {
     key,
     icon,
     children,
     label,
     type,
-  };
+  } as ItemType;
 }
 
-const items = reactive([
+const items: ItemType[] = reactive([
   getItem('Navigation One', '1', h(MailOutlined)),
   getItem('Navigation Two', '2', h(CalendarOutlined)),
   getItem('Navigation Two', 'sub1', h(AppstoreOutlined), [
@@ -37,16 +47,14 @@ const items = reactive([
     getItem('Option 10', '10'),
   ]),
 ]);
-const changeMode = checked => {
+
+const changeMode = (checked: boolean) => {
   state.mode = checked ? 'vertical' : 'inline';
 };
-const changeTheme = checked => {
+
+const changeTheme = (checked: boolean) => {
   state.theme = checked ? 'dark' : 'light';
 };
-const clickData = () => {
-  console.log(router)
-  router.push({path: '/Login'})
-}
 </script>
 
 <template>

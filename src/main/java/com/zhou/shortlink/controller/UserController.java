@@ -5,6 +5,7 @@ import com.zhou.shortlink.domain.User;
 import com.zhou.shortlink.result.R;
 import com.zhou.shortlink.service.UserService;
 import com.zhou.shortlink.vo.UserLoginVo;
+import com.zhou.shortlink.vo.UserVo;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -23,8 +24,8 @@ public class UserController {
             return R.error("账号不能为空");
         }
 
-        String login = userService.login(userLoginVo);
-        return R.ok("登录成功").setData(login);
+        UserVo userVo = userService.login(userLoginVo);
+        return R.ok("登录成功").setData(userVo);
     }
 
     @GetMapping("/getLoginUser")
