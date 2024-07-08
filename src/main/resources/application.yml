@@ -107,3 +107,7 @@ sa-token:
   is-log: true
   jwt-secret-key: xxx
 
+logging:
+  level:
+    root: info #日志级别
+
