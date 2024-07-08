@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import {h, reactive} from 'vue';
-import {AppstoreOutlined, CalendarOutlined, MailOutlined, SettingOutlined,} from '@ant-design/icons-vue';
+import {h, onMounted, reactive} from 'vue';
+import {MailOutlined,} from '@ant-design/icons-vue';
 import type {MenuMode, MenuTheme} from 'ant-design-vue';
 import {ItemType} from 'ant-design-vue';
 
 import Bottom from "./bottom/index.vue";
 import Top from "./top/index.vue";
+import {GroupResponseData} from "@/api/home/type.ts";
+import {reqGroupList} from "@/api/home";
 
 const state = reactive({
   mode: 'inline' as MenuMode,
@@ -30,21 +32,26 @@ function getItem(
   } as ItemType;
 }
 
-const items: ItemType[] = reactive([
-  getItem('Navigation One', '1', h(MailOutlined)),
-  getItem('Navigation Two', '2', h(CalendarOutlined)),
-  getItem('Navigation Two', 'sub1', h(AppstoreOutlined), [
-    getItem('Option 3', '3'),
-    getItem('Option 4', '4'),
-    getItem('Submenu', 'sub1-2', null, [getItem('Option 5', '5'), getItem('Option 6', '6')]),
-  ]),
-  getItem('Navigation Three', 'sub2', h(SettingOutlined), [
-    getItem('Option 7', '7'),
-    getItem('Option 8', '8'),
-    getItem('Option 9', '9'),
-    getItem('Option 10', '10'),
-  ]),
-]);
+//组件挂载完毕：发一次请求
+onMounted(() => {
+  getGroupList();
+});
+
+const items: ItemType[] = reactive([]);
+
+//获取已有的医院的数据
+const getGroupList = async () => {
+  let result: GroupResponseData = await reqGroupList();
+  if (result.code == 200) {
+    let data = result.data;
+    // 循环遍历
+    for (let i = 0; i < data.length; i++) {
+      let item = data[i];
+      items.push(getItem(item.name, item.id, h(MailOutlined)));
+    }
+  }
+};
+
 
 </script>
 

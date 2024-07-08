@@ -2,7 +2,7 @@
 import {defineStore} from "pinia";
 import {GET_TOKEN, REMOVE_TOKEN, SET_TOKEN} from "@/utils/user.ts";
 import {LoginData, ResponseData, UserLoginResponseData} from "@/api/shortlink/type.ts";
-import {loginOut, userLogin} from "@/api/shortlink/login.ts";
+import {loginOut, userLogin} from "@/api/shortlink";
 import {UserState} from "@/store/modules/interface";
 
 const useUserStore = defineStore('User', {

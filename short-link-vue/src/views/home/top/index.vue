@@ -2,6 +2,7 @@
 //引入路由器
 import {useRouter} from "vue-router";
 import useUserStore from "@/store/modules/user";
+import {ApiTwoTone,QuestionCircleFilled, UserOutlined} from '@ant-design/icons-vue';
 
 let userStore = useUserStore();
 
@@ -29,13 +30,16 @@ const goUser = (path: string) => {
     <div class="content">
       <!-- 左侧 -->
       <div class="left" @click="goHome">
-        <p>爱短链</p>
+        <ApiTwoTone />
+        <p>My短链</p>
       </div>
       <div class="right">
+        <QuestionCircleFilled />
         <p class="help">帮助中心</p>
         <!-- 如果有用户信息展示用户信息 -->
         <a-dropdown>
           <a class="ant-dropdown-link" @click.prevent>
+            <UserOutlined/>
             {{ userStore.userInfo.realName }}
           </a>
           <template #overlay>
@@ -67,13 +71,16 @@ const goUser = (path: string) => {
     justify-content: space-between;
 
     .left {
+      font-size: 30px;
       display: flex;
       justify-content: center;
       align-items: center;
+      margin-left: 30px;
 
       p {
         font-size: 20px;
         color: #55a6fe;
+        margin-bottom: 0;
       }
     }
 
@@ -82,10 +89,16 @@ const goUser = (path: string) => {
       align-items: center;
       justify-content: center;
       font-size: 14px;
-      color: #bbb;
+      color: #55a6fe;
 
       .help {
+        margin-right: 30px;
+        margin-bottom: 0;
+      }
+
+      .ant-dropdown-link {
         margin-right: 10px;
+        font-size: 20px;
       }
     }
   }
