@@ -14,7 +14,7 @@ export interface LoginData {
 
 //登录接口返回用户信息数据
 export interface UserInfo {
-    nickname: string,
+    realName: string,
     token: string
 }
 

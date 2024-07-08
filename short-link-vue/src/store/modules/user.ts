@@ -31,7 +31,7 @@ const useUserStore = defineStore('User', {
             //清空仓库的数据
             let result: ResponseData = await loginOut();
             if (result.code == 200) {
-                this.userInfo = {nickname: '', token: ''};
+                this.userInfo = {realName: '', token: ''};
                 //清空本地存储的数据
                 REMOVE_TOKEN();
                 return 'ok';
