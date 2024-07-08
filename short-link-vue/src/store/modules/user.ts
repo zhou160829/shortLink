@@ -1,8 +1,8 @@
 //定义用户相关的仓库
 import {defineStore} from "pinia";
 import {GET_TOKEN, REMOVE_TOKEN, SET_TOKEN} from "@/utils/user.ts";
-import {LoginData, UserLoginResponseData} from "@/api/shortlink/type.ts";
-import {userLogin} from "@/api/shortlink/login.ts";
+import {LoginData, ResponseData, UserLoginResponseData} from "@/api/shortlink/type.ts";
+import {loginOut, userLogin} from "@/api/shortlink/login.ts";
 import {UserState} from "@/store/modules/interface";
 
 const useUserStore = defineStore('User', {
@@ -27,11 +27,17 @@ const useUserStore = defineStore('User', {
             }
         },
         //退出登录方法
-        logout() {
+        async logout() {
             //清空仓库的数据
-            this.userInfo = {nickname: '', token: ''};
-            //清空本地存储的数据
-            REMOVE_TOKEN();
+            let result: ResponseData = await loginOut();
+            if (result.code == 200) {
+                this.userInfo = {nickname: '', token: ''};
+                //清空本地存储的数据
+                REMOVE_TOKEN();
+                return 'ok';
+            } else {
+                return Promise.reject(new Error(result.message));
+            }
         },
 
     },

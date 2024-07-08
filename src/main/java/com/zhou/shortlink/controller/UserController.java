@@ -38,4 +38,15 @@ public class UserController {
         }
         return R.error("未找到登录信息");
     }
+
+
+    @GetMapping("/loginOut")
+    public R loginOut() {
+        boolean login = StpUtil.isLogin();
+        if (login) {
+            StpUtil.logout();
+            return R.data("退出登录成功");
+        }
+        return R.error("退出失败");
+    }
 }

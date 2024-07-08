@@ -7,7 +7,7 @@ import cn.dev33.satoken.router.SaHttpMethod;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
-import com.zhou.shortlink.exceptions.NotLoginException;
+import com.zhou.shortlink.result.R;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +41,7 @@ public class SaTokenConfigure {
                 // 异常处理函数：每次认证函数发生异常时执行此函数
                 .setError(e -> {
                     log.error("鉴权错误", e.fillInStackTrace());
-                    throw new NotLoginException("未找到登录信息");
+                    return R.error("未找到登录信息");
                 })
 
                 // 前置函数：在每次认证函数之前执行

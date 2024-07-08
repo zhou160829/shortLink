@@ -17,7 +17,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(com.zhou.shortlink.exceptions.RedisLimitException.class)
     @ResponseBody
-    public R redisLimitException(BizException e) {
+    public R redisLimitException(RedisLimitException e) {
         return R.error().setCode(e.getCode()).setData(e.getMsg());
     }
 
