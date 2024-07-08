@@ -1,4 +1,4 @@
-package com.zhou.shortlink.domain.vo;
+package com.zhou.shortlink.domain.vo.count;
 
 import lombok.Builder;
 import lombok.Data;

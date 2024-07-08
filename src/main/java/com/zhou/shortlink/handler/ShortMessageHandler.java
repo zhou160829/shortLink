@@ -7,7 +7,7 @@ import com.zhou.shortlink.constant.MqConstants;
 import com.zhou.shortlink.domain.Link;
 import com.zhou.shortlink.domain.LinkLogs;
 import com.zhou.shortlink.domain.LinkToday;
-import com.zhou.shortlink.domain.vo.IpVo;
+import com.zhou.shortlink.domain.vo.count.IpVo;
 import com.zhou.shortlink.enums.DeleteFlag;
 import com.zhou.shortlink.service.LinkLogsService;
 import com.zhou.shortlink.service.LinkService;

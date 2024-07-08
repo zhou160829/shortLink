@@ -1,4 +1,4 @@
-package com.zhou.shortlink.vo;
+package com.zhou.shortlink.domain.vo.user;
 
 import lombok.Data;
 
